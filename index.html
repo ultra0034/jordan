@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Air Jordan 1 pixel collection by MAUS MAUS: 250 8-bit colorways on a 3D globe.">
+<title>Pixel Jordan Globe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: one full-screen arcade cabinet. Globe of pixel tiles in the middle, HUD in the corners, item window on click. */
+:root {
+  --night: #0e0c1b;
+  --panel: #191530;
+  --ink: #f3ecdc;
+  --dim: #7d7799;
+  --red: #e3242b;
+  --gold: #f2c14e;
+  --display: "Press Start 2P", ui-monospace, "Courier New", monospace;
+  --body: "VT323", ui-monospace, "Courier New", monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 20px;
+  overflow: hidden;
+  -webkit-font-smoothing: none;
+}
+.cabinet {
+  position: relative;
+  height: 100%;
+  padding-inline: 16px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(ellipse at 50% 55%, #221c44 0%, var(--night) 62%);
+}
+.cabinet::after { /* CRT scanlines */
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.22) 2px 3px);
+  z-index: 50;
+}
+
+/* HUD */
+.hud {
+  position: absolute; left: 16px; right: 16px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  flex-wrap: wrap;
+  z-index: 40;
+  pointer-events: none;
+}
+.hud > * { pointer-events: auto; }
+.hud.top { top: 20px; }
+.hud.bottom { bottom: 18px; align-items: flex-end; }
+.logo h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(14px, 2.4vw, 24px);
+  line-height: 1.4;
+  letter-spacing: .02em;
+  text-shadow: 3px 3px 0 var(--red);
+}
+.logo p { margin: 6px 0 0; color: var(--dim); font-size: 20px; letter-spacing: .06em; }
+.score {
+  font-family: var(--display);
+  font-size: 11px;
+  text-align: right;
+  line-height: 2;
+  color: var(--dim);
+}
+.score b { color: var(--gold); font-weight: 400; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip, .pixbtn {
+  font-family: var(--display);
+  font-size: 10px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 0;
+  padding: 9px 11px 8px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--dim), 3px 3px 0 #000;
+}
+.chip[style*="--tc"]::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--tc); vertical-align: 0; }
+.chip[aria-pressed="true"] { background: var(--red); box-shadow: inset 0 0 0 2px var(--ink), 3px 3px 0 #000; }
+.chip:hover, .pixbtn:hover { box-shadow: inset 0 0 0 2px var(--ink), 3px 3px 0 #000; }
+.chip:active, .pixbtn:active { transform: translate(2px, 2px); box-shadow: inset 0 0 0 2px var(--ink), 1px 1px 0 #000; }
+.chip:focus-visible, .pixbtn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+.hint {
+  font-family: var(--display);
+  font-size: 10px;
+  color: var(--dim);
+  text-align: right;
+  line-height: 2;
+}
+.zoom { display: inline-flex; gap: 6px; margin-top: 6px; }
+.zoom .pixbtn { min-width: 34px; }
+.hint .blink { color: var(--ink); animation: blink 1.1s steps(1) infinite; }
+.hint a { color: var(--dim); }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Globe */
+.stage {
+  position: absolute; inset: 0;
+  z-index: 1;             /* own stacking context so tile z-indexes stay under the HUD and card */
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.stage.dragging { cursor: grabbing !important; }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.tier-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.tier-labels span {
+  position: absolute; left: 0; top: 0;
+  font-family: var(--display); font-size: 11px; letter-spacing: .08em; white-space: nowrap;
+  color: var(--ink); transform-origin: 0 100%;
+}
+.tier-labels span i { display: inline-block; width: 9px; height: 9px; margin-right: 8px; background: var(--tc); box-shadow: 0 0 0 2px #000; }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 12px; color: var(--dim); text-align: center; padding: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-only:focus-within { width: auto; height: auto; clip: auto; left: 16px; top: 120px; z-index: 45; display: grid; gap: 4px; background: var(--panel); padding: 8px; }
+
+/* Item window */
+.overlay {
+  position: absolute; inset: 0;
+  z-index: 60;
+  background: rgba(8, 6, 18, .72);
+  display: grid; place-items: safe center;
+  padding: 28px 16px;
+  overflow: auto;
+  perspective: 1100px;
+}
+.flip {
+  width: min(680px, 100%);
+  transform-style: preserve-3d;
+  animation: flipin .55s cubic-bezier(.2,.9,.25,1.15) both;
+}
+@keyframes flipin {
+  from { transform: rotateY(-110deg) rotateX(18deg) scale(.55); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: none; opacity: 1; }
+}
+.card {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(calc(var(--ry, 0deg) + var(--turn, 0deg)));
+  transition: transform .18s ease-out;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 4px #000,
+    0 0 0 8px var(--ink),
+    0 0 0 12px #000,
+    12px 12px 0 12px rgba(0,0,0,.6);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+}
+.card.turning { transition: transform .6s cubic-bezier(.3,1.4,.4,1); }
+.card > .front { transform-style: preserve-3d; }
+.card .art img  { transform: translateZ(70px); }
+.card .art .big-yr { transform: translateZ(40px); }
+.card .info > * { transform: translateZ(18px); }
+.card .close { transform: translateZ(30px); }
+/* swap faces at the halfway point of the turn; backface-visibility can't hide the 3D parallax layers */
+.card > .front, .card .back { transition: visibility 0s .16s; }
+.card:not(.is-flipped) .back, .card.is-flipped > .front { visibility: hidden; }
+.card .glare {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 30%), rgba(255,255,255,.22), rgba(255,255,255,0) 45%);
+  mix-blend-mode: screen;
+  transform: translateZ(2px);
+}
+.card .back {
+  position: absolute; inset: 0;
+  transform: rotateY(180deg) translateZ(-1px);
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.18) 0 8px, rgba(0,0,0,0) 8px 16px),
+    var(--cbg);
+  display: grid; place-items: center; align-content: center; gap: 18px;
+  text-align: center;
+  color: var(--clbl);
+  padding: 24px;
+}
+.back .serial { font-family: var(--display); font-size: clamp(36px, 9vw, 72px); text-shadow: 5px 5px 0 rgba(0,0,0,.45); transform: translateZ(60px); }
+.back .label  { font-family: var(--display); font-size: 11px; letter-spacing: .1em; transform: translateZ(30px); }
+.back .bigsw  { display: flex; gap: 10px; transform: translateZ(40px); }
+.back .bigsw span { width: 40px; height: 40px; box-shadow: inset 0 0 0 3px #000, 4px 4px 0 rgba(0,0,0,.5); }
+.card .art {
+  background: var(--cbg);
+  display: grid; place-items: center;
+  padding: 28px 16px;
+  position: relative;
+  min-height: 220px;
+}
+.card .art img {
+  width: 100%; max-width: 260px;
+  image-rendering: pixelated;
+}
+.card .art .big-yr {
+  position: absolute; left: 14px; top: 14px;
+  font-family: var(--display); font-size: 14px; color: var(--clbl);
+}
+.card .info { padding: 22px 22px 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.tag {
+  font-family: var(--display); font-size: 9px; letter-spacing: .08em;
+  color: var(--gold);
+}
+.card h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(13px, 2vw, 17px);
+  line-height: 1.6;
+  text-wrap: balance;
+}
+.card .nick { margin: -6px 0 0; color: var(--dim); font-size: 20px; }
+.card .desc { margin: 0; font-size: 22px; line-height: 1.15; min-height: 3.5em; max-width: 34ch; }
+.card .desc .cursor { animation: blink .7s steps(1) infinite; }
+.stats { display: grid; gap: 6px; margin: 0; }
+.stat { display: grid; grid-template-columns: 9.5ch 1fr; align-items: center; gap: 8px; }
+.stat dt { font-family: var(--display); font-size: 9px; color: var(--dim); }
+.stat dd { margin: 0; display: flex; gap: 3px; }
+.stat dd.txt { font-size: 20px; line-height: 1; overflow-wrap: anywhere; }
+.stat dd i { width: 14px; height: 12px; background: #2c2650; box-shadow: inset 0 0 0 2px #000; }
+.stat dd i.on { background: var(--red); }
+.swatches { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.swatches span { width: 18px; height: 18px; box-shadow: inset 0 0 0 2px #000; }
+.swatches small { font-family: var(--display); font-size: 9px; color: var(--dim); margin-right: 4px; }
+.card .nav { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.card .close { position: absolute; right: 12px; top: 12px; z-index: 2; }
+.note { font-size: 16px; color: var(--dim); margin: 0; }
+
+@media (max-width: 620px) {
+  .card { grid-template-columns: 1fr; }
+  .card .art { min-height: 0; padding: 36px 16px 20px; }
+  .card .art img { max-width: 200px; }
+  .hint { text-align: left; }
+  .hud.bottom { flex-direction: column-reverse; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip, .card, .card .art img, .hint .blink { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="cabinet">
+  <div class="stage" id="stage" role="img" aria-label="Air Jordan 1 colorway globe"></div>
+  <div class="tier-labels" id="tierLabels" hidden></div>
+  <nav class="sr-only" id="kb-list" aria-label="All pairs"></nav>
+
+  <div class="hud top">
+    <div class="logo">
+      <h1>AIR JORDAN 1<br>PIXEL COLLECTION</h1>
+      <p>8-bit colorway archive · 1985 – 2022</p>
+    </div>
+    <div class="score">
+      PAIRS <b id="count">250</b><br>
+      SELECT <b id="sel">---</b><br>
+      <span class="zoom" role="group" aria-label="Zoom">
+        <button class="pixbtn" id="zout" aria-label="Zoom out">−</button>
+        <button class="pixbtn" id="zreset" aria-label="Reset zoom">1×</button>
+        <button class="pixbtn" id="zin" aria-label="Zoom in">+</button>
+      </span><br>
+      <button class="pixbtn" id="unfold" aria-pressed="false" style="margin-top:6px">UNFOLD ▦</button><br>
+      <button class="pixbtn" id="sound" aria-pressed="false" style="margin-top:6px">SOUND OFF</button>
+    </div>
+  </div>
+
+  <div class="hud bottom">
+    <div class="filters" role="group" aria-label="Filter by tier">
+      <button class="chip" data-f="all" aria-pressed="true">ALL</button>
+      <button class="chip" data-f="ultimate" aria-pressed="false" style="--tc:#a259ff">ULTIMATE</button>
+      <button class="chip" data-f="legend" aria-pressed="false" style="--tc:#ff3b3b">LEGEND</button>
+      <button class="chip" data-f="epic" aria-pressed="false" style="--tc:#f2c14e">EPIC</button>
+      <button class="chip" data-f="collab" aria-pressed="false" style="--tc:#ff8a2a">COLLAB</button>
+      <button class="chip" data-f="rare" aria-pressed="false" style="--tc:#4cc3ff">RARE</button>
+      <button class="chip" data-f="special" aria-pressed="false" style="--tc:#3ddc84">SPECIAL</button>
+      <button class="chip" data-f="common" aria-pressed="false">COMMON</button>
+    </div>
+    <div class="hint">
+      <span class="blink" id="hintText">DRAG TO SPIN · SCROLL TO ZOOM · CLICK TO INSPECT</span><br>
+      Art by <a href="https://www.behance.net/gallery/142705389/AIR-JORDAN-1-COLLECTION" target="_blank" rel="noopener">MAUS MAUS · Behance</a>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="flip" id="flip">
+    <article class="card" id="card" role="dialog" aria-modal="true" aria-labelledby="c-name">
+      <button class="pixbtn close front" id="close" aria-label="Close">X</button>
+      <div class="art front"><span class="big-yr" id="c-yr"></span><img id="c-img" alt=""></div>
+      <div class="info front">
+        <span class="tag" id="c-tag"></span>
+        <h2 id="c-name"></h2>
+        <p class="nick" id="c-nick"></p>
+        <p class="desc" id="c-desc" aria-live="polite"></p>
+        <dl class="stats" id="c-stats"></dl>
+        <div class="swatches" id="c-sw"></div>
+        <div class="nav">
+          <button class="pixbtn" id="prev">◀ PREV</button>
+          <button class="pixbtn" id="next">NEXT ▶</button>
+          <button class="pixbtn" id="flipbtn">FLIP ⟲</button>
+        </div>
+        <p class="note" id="c-note">Specs from the NFT-0034 Figma board.</p>
+      </div>
+      <div class="back" id="back" aria-hidden="true">
+        <span class="label">AIR JORDAN 1 · PIXEL COLLECTION</span>
+        <span class="serial" id="b-serial">#001</span>
+        <div class="bigsw" id="b-sw"></div>
+        <span class="label" id="b-name"></span>
+        <button class="pixbtn" id="flipback">FLIP BACK ⟲</button>
+      </div>
+      <div class="glare"></div>
+    </article>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+(() => {
+  // ---------- Collection (exported from the NFT-0034 Figma board, frame "released") ----------
+  // figma node, tier, name, style code, year, retail, sheet, x, y on the sheet, edge colour
+  const SHEETS = ["tiles/tiles-0.png", "tiles/tiles-1.png"], SHEET_PX = 2048, THUMB = 152;
+  const ROWS = [
+    ["319:22622", "ultimate", "White Red Nike Air Ship", "N/A", "N/A", "N/A", 0, 4, 4, "#a452ea"],
+    ["319:33717", "legend", "Banned", "Unreleased", "N/A", "N/A", 0, 164, 4, "#ac9490"],
+    ["319:35125", "legend", "UNC", "4297", "1985", "$65", 0, 324, 4, "#90454c"],
+    ["678:23743", "legend", "Natural Grey", "4295", "1985", "$65", 0, 484, 4, "#9f4a4c"],
+    ["685:22426", "legend", "Metallic Green", "AJ1 1985 METALLIC GRN", "1985", "$65", 0, 644, 4, "#994749"],
+    ["319:33585", "legend", "Black Toe", "N/A", "1985", "$65", 0, 804, 4, "#8c2e30"],
+    ["319:33459", "legend", "Bred \"Banned\"", "4281", "1985", "$65", 0, 964, 4, "#862426"],
+    ["682:22560", "legend", "Metallic Blue", "4299", "1986", "$65", 0, 1124, 4, "#994549"],
+    ["685:22557", "legend", "Metallic Purple", "AJ1 1985 METALLIC PUR", "1986", "$65", 0, 1284, 4, "#9d464b"],
+    ["319:33340", "legend", "Chicago", "4280", "1985", "$65", 0, 1444, 4, "#942f30"],
+    ["606:31510", "legend", "White Black", "4298", "1985", "$65", 0, 1604, 4, "#8b3537"],
+    ["682:22690", "legend", "Metallic Red", "850810TY1", "1986", "$65", 0, 1764, 4, "#a14345"],
+    ["685:22688", "legend", "Metallic Black", "4287", "1986", "$65", 0, 4, 164, "#9c4648"],
+    ["683:22452", "legend", "Metallic Orange", "850709TY1", "1986", "$65", 0, 164, 164, "#a14745"],
+    ["685:22819", "legend", "Metallic Burgundy", "AJ1 1985 METALLIC BURG", "1986", "$65", 0, 324, 164, "#a04448"],
+    ["319:35000", "legend", "Royal", "4282", "1985", "$65", 0, 484, 164, "#792732"],
+    ["661:23257", "legend", "Shadow", "4283", "1985", "$65", 0, 644, 164, "#863032"],
+    ["319:22737", "epic", "Off-White Chicago", "AA3834-101", "2017", "$190", 0, 804, 164, "#534851"],
+    ["319:33835", "epic", "Off-White Canary Yellow", "Unreleased", "Unreleased", "N/A", 0, 964, 164, "#3b6dcb"],
+    ["319:34023", "epic", "Air Dior", "CN8607-002", "2020", "$2,000", 0, 1124, 164, "#515867"],
+    ["319:22997", "epic", "Travis Scott", "CD4487-100", "2019", "$175", 0, 1284, 164, "#e4ce17"],
+    ["319:28060", "epic", "colette (F&F)", "836733 XC", "2018", "N/A", 0, 1444, 164, "#2f4698"],
+    ["319:25826", "epic", "Fragment (F&F)", "716371-040F", "2014", "N/A", 0, 1604, 164, "#7e95a7"],
+    ["319:26466", "epic", "IGLOO", "861428-100", "2017", "$160", 0, 1764, 164, "#d5e1de"],
+    ["319:25783", "epic", "Trophy Room Chicago", "DA2728-100", "2021", "$190", 0, 4, 324, "#b2adae"],
+    ["319:26997", "epic", "Rust Pink", "861428-101", "2017", "$160", 0, 164, 324, "#d9dedb"],
+    ["319:25754", "collab", "Trophy Room Chicago (F&F)", "DA2728-100", "2021", "$190", 0, 324, 324, "#a6b69f"],
+    ["319:22898", "collab", "Off-White University Blue", "AQ0818-148", "2018", "$190", 0, 484, 324, "#a1aec0"],
+    ["319:24002", "collab", "Fragment x Travis Scott", "DH3227-105", "2021", "$200", 0, 644, 324, "#7e8996"],
+    ["319:23160", "collab", "Travis Scott", "CD4487-100", "2019", "$175", 0, 804, 324, "#8d8d93"],
+    ["319:25543", "collab", "Off-White Chicago", "AA3834-101", "2017", "$190", 0, 964, 324, "#a9989b"],
+    ["319:25910", "collab", "Off-White Canary Yellow", "Unreleased", "Unreleased", "N/A", 0, 1124, 324, "#beb6a3"],
+    ["319:24492", "collab", "Off-White White", "AQ0818-100", "2018", "$190", 0, 1284, 324, "#435c90"],
+    ["319:23739", "rare", "Union Los Angeles Blue Toe", "BV1300-146", "2018", "$190", 0, 1444, 324, "#d74590"],
+    ["319:23953", "rare", "\"Not for Resale\" Varsity Maize", "861428-107", "2018", "$160", 0, 1604, 324, "#748ae1"],
+    ["319:25642", "rare", "SoleFly Art Basel (F&F)", "AV3905-038", "2018", "$160", 0, 1764, 324, "#1ab198"],
+    ["319:34256", "rare", "Fragment", "716371-040", "2014", "$185", 0, 4, 484, "#92989f"],
+    ["677:23398", "rare", "Quai54 (R) (F&F)", "MNJDLS 262 767119 XC", "2017", "$0", 0, 164, 484, "#2f4556"],
+    ["319:24946", "rare", "\"Not for Resale\" Varsity Red", "861428-106", "2018", "$160", 0, 324, 484, "#d3d86d"],
+    ["404:28346", "rare", "Spike Lee Fort Greene", "705588-550", "2017", "$300", 0, 484, 484, "#9db0cf"],
+    ["319:32410", "rare", "Satin \"Royal\"", "921193-007", "2017", "$175", 0, 644, 484, "#adb5c0"],
+    ["677:23550", "rare", "Quai54 (L) (F&F)", "MNJDLS 262 767119 XC", "2017", "$0", 0, 804, 484, "#4d323a"],
+    ["319:25283", "rare", "Union Los Angeles Black Toe", "BV1300-106", "2018", "$190", 0, 964, 484, "#51a1cc"],
+    ["319:26729", "rare", "Satin \"Banned\"", "917359-001", "2016", "$175", 0, 1124, 484, "#c2abab"],
+    ["319:33921", "rare", "Chicago (1994)", "130207-101", "1994", "$80", 0, 1284, 484, "#49383d"],
+    ["319:28029", "rare", "Bred (1994)", "130207-061", "1994", "N/A", 0, 1444, 484, "#35292f"],
+    ["319:34500", "rare", "Spider Man Origin Story (Special Box)", "555088-602", "2018", "$160", 0, 1604, 484, "#3259bb"],
+    ["319:26654", "rare", "Satin Banned (Promo Sample)", "999999999", "2016", "$175", 0, 1764, 484, "#6d575a"],
+    ["319:30598", "special", "TedX PDX Perfect Black", "MNJDLS851Z", "2014", "N/A", 0, 4, 644, "#bd3b33"],
+    ["319:27952", "special", "TedX PDX \"Perfect\"", "MNJDLS8512", "2014", "N/A", 0, 164, 644, "#df5d56"],
+    ["319:39469", "special", "CO Japan Neutral Grey (Suitcase)", "DA0382-029", "2001", "$170", 0, 324, 644, "#c5c5c5"],
+    ["319:29291", "special", "Think 16 (Pass the Torch)", "AQ7476-016", "2018", "$145", 0, 484, 644, "#cfd0d0"],
+    ["319:37586", "special", "Blake Griffin PE", "332550-601", "2014", "$130", 0, 644, 644, "#e2d3d4"],
+    ["319:27360", "special", "University of Florida PE", "555088-951260", "2020", "N/A", 0, 804, 644, "#5d68cb"],
+    ["319:35991", "special", "Bred", "555088-023", "2013", "$140", 0, 964, 644, "#b7a3a3"],
+    ["319:23899", "special", "Black Metallic Gold", "555088-019", "2013", "$140", 0, 1124, 644, "#dedcda"],
+    ["319:39389", "special", "Japan White", "136060-111", "2001", "$100", 0, 1284, 644, "#2dd0f4"],
+    ["319:27243", "special", "SoleFly Art Basel Sail", "AV3905-138", "2018", "$160", 0, 1444, 644, "#ead3d1"],
+    ["319:36826", "special", "Chris Paul PE", "332550-402", "2014", "$130", 0, 1604, 644, "#6ca3d9"],
+    ["319:23553", "special", "Shattered Backboard", "555088-005", "2015", "$160", 0, 1764, 644, "#d5c8c2"],
+    ["319:36756", "special", "SB LA to Chicago", "CD6578-507", "2019", "$175", 0, 4, 804, "#b9838f"],
+    ["319:23379", "special", "Spider-Man Origin Story", "555088-602", "2018", "$160", 0, 164, 804, "#d0c3d9"],
+    ["537:22357", "special", "Gucci", "332550-025", "2012", "$110", 0, 324, 804, "#4a5536"],
+    ["319:27275", "special", "Michigan PE", "951258 MNJDLS 168", "2019", "N/A", 0, 484, 804, "#284254"],
+    ["319:23731", "special", "Reverse Shattered Backboard", "555088-113", "2016", "$160", 0, 644, 804, "#f5e4dc"],
+    ["319:26039", "special", "Air Ship New Beginnings", "CU0479-100", "2020", "$175", 0, 804, 804, "#483a40"],
+    ["319:27159", "special", "Oklahoma Sooners PE", "555088 951262 XC MNJDLS 355", "2020", "N/A", 0, 964, 804, "#ecd7db"],
+    ["319:35961", "special", "Bred", "136066-061", "2001", "$80", 0, 1124, 804, "#786568"],
+    ["319:43254", "special", "Nigel Sylvester", "BV1803-106", "2018", "$180", 0, 1284, 804, "#c4b197"],
+    ["319:43105", "special", "Laney", "555088-707", "2013", "$140", 0, 1444, 804, "#d8dccd"],
+    ["319:26112", "special", "Jordan 1 Retro High New Beginnings", "CQ4921-601", "2020", "$175", 0, 1604, 804, "#c03d3d"],
+    ["319:22804", "special", "Paris Saint Germain (F&F)", "842024/AR325400100 XC", "2018", "N/A", 0, 1764, 804, "#9b8689"],
+    ["319:42115", "special", "XQ", "555088-040", "2013", "$140", 0, 4, 964, "#f1c8c2"],
+    ["319:36811", "special", "Russell Westbrook PE", "332550-312", "2015", "$130", 0, 164, 964, "#a5c4d4"],
+    ["319:37381", "special", "Melo PE", "332550-026", "2014", "$130", 0, 324, 964, "#ae8a57"],
+    ["319:36074", "special", "J Balvin", "DC3481-900", "2020", "$190", 0, 484, 964, "#829268"],
+    ["319:36021", "special", "Chicago", "332550-163", "2013", "$110", 0, 644, 964, "#c63c3b"],
+    ["319:43586", "special", "UNC to Chi Leather", "CD0461-046", "2020", "$170", 0, 804, 964, "#282933"],
+    ["319:36312", "common", "SB NYC to PARIS", "CD6578-006", "2019", "$175", 0, 964, 964, "#3a3b42"],
+    ["319:28652", "common", "Black Cyber Blue Sapphire", "332550-005", "2010", "$105", 0, 1124, 964, "#69827e"],
+    ["319:37166", "common", "Pinnacle Black", "705075-030", "2015", "$400", 0, 1284, 964, "#2f2c20"],
+    ["319:43046", "common", "Cyber Monday", "555088-006", "2015", "$160", 0, 1444, 964, "#b5b5b5"],
+    ["319:40411", "common", "Blue Moon", "555088-115", "2018", "$160", 0, 1604, 964, "#616571"],
+    ["319:42800", "common", "Bordeaux", "555088-611", "2021", "$170", 0, 1764, 964, "#b07ea2"],
+    ["319:40389", "common", "Electro Orange", "555088-180", "2021", "$170", 0, 4, 1124, "#6acde3"],
+    ["319:40496", "common", "Pine Green Black", "555088-030", "2020", "$170", 0, 164, 1124, "#09a14d"],
+    ["319:40261", "common", "White Vachetta Tan", "845018-142", "2016", "$160", 0, 324, 1124, "#dddfe1"],
+    ["319:38152", "common", "Mica Green Desert Sand", "AA3993-333", "2018", "$145", 0, 484, 1124, "#d7e2e6"],
+    ["417:22400", "common", "Gold Top 3 (L)", "861428-001", "2017", "$160", 0, 644, 1124, "#6e6963"],
+    ["319:42971", "common", "Black Crimson Tint", "555088-081", "2019", "$160", 0, 804, 1124, "#e9b8b6"],
+    ["319:42706", "common", "Yellow Ochre", "555088-109", "2018", "$160", 0, 964, 1124, "#6e6c6b"],
+    ["319:38195", "common", "Shadow", "555088-013", "2018", "$160", 0, 1124, 1124, "#bbbbbb"],
+    ["319:41255", "common", "Opening Day White", "325514-102", "2008", "$100", 0, 1284, 1124, "#d3d3d3"],
+    ["319:38362", "common", "Shadow", "555088-014", "2013", "$140", 0, 1444, 1124, "#2d2e33"],
+    ["319:38443", "common", "Black Desert Sand", "AA3993-021", "2018", "$145", 0, 1604, 1124, "#32333a"],
+    ["319:38173", "common", "Pinnacle White", "705075-130", "2015", "$400", 0, 1764, 1124, "#4f4a3d"],
+    ["608:22410", "common", "Brotherhood", "555088-706", "2020", "$170", 0, 4, 1284, "#f1d8c8"],
+    ["319:43433", "common", "Aleali May Shadow", "AJ5991-062", "2017", "$160", 0, 164, 1284, "#a8a4a4"],
+    ["319:42646", "common", "Prototype", "DC6515-100", "2021", "$170", 0, 324, 1284, "#a3a2a2"],
+    ["319:39771", "common", "Los Primeros (Air Jordan I x Pomb)", "AH7739-001", "2017", "$160", 0, 484, 1284, "#d1d1d2"],
+    ["319:39990", "common", "Carmine", "555088-123", "2014", "$140", 0, 644, 1284, "#a2c2ea"],
+    ["319:36045", "common", "Dark Mocha", "555088-105", "2020", "$170", 0, 804, 1284, "#d7d5d4"],
+    ["319:40838", "common", "Spice", "332550-006", "2010", "N/A", 0, 964, 1284, "#665762"],
+    ["319:39530", "common", "Gold Top 3 (R)", "861428-001", "2017", "$160", 0, 1124, 1284, "#514a43"],
+    ["319:38704", "common", "Pinnacle Vachetta Tan", "705075-201", "2015", "$400", 0, 1284, 1284, "#d6925e"],
+    ["319:43025", "common", "Black", "555088-022", "2017", "$160", 0, 1444, 1284, "#b2adad"],
+    ["319:39008", "common", "Gold Medal", "332550-406", "2016", "$140", 0, 1604, 1284, "#7c9c7a"],
+    ["451:23292", "common", "Fearless Blue the Great", "CU2805-100", "2019", "$130", 0, 1764, 1284, "#59b3d4"],
+    ["319:40149", "common", "Fearless UNC Chicago", "CK5666-100", "2019", "$160", 0, 4, 1444, "#d5d1d4"],
+    ["319:40067", "common", "Fearless Melody Ehsani (R)", "CQ7629-100", "2019", "$130", 0, 164, 1444, "#efd5dd"],
+    ["319:43339", "common", "First Class Flight", "555088-170", "2019", "$160", 0, 324, 1444, "#d3d3cd"],
+    ["319:42309", "common", "HOF", "371498-012", "2009", "$125", 0, 484, 1444, "#b6b4b5"],
+    ["319:40657", "common", "Court Purple White", "555088-500", "2020", "$170", 0, 644, 1444, "#bab8c2"],
+    ["319:40700", "common", "Sports Illustrated (A Star Is Born)", "555088-015", "2018", "$160", 0, 804, 1444, "#c54245"],
+    ["319:43612", "common", "Defiant Couture", "BQ6682-006", "2019", "$175", 0, 964, 1444, "#4e333a"],
+    ["319:40432", "common", "Neutral Grey Hyper Crimson", "555088-018", "2019", "$160", 0, 1124, 1444, "#704233"],
+    ["319:37887", "common", "Black White", "555088-010", "2014", "$140", 0, 1284, 1444, "#747474"],
+    ["319:36217", "common", "Anodized Foamposite", "414823-401", "2010", "$150", 0, 1444, 1444, "#2b5d96"],
+    ["319:37137", "common", "Armed Forces Pearl White", "325514-221", "2008", "$100", 0, 1604, 1444, "#c5c0b9"],
+    ["319:39914", "common", "David Letterman", "555088-606", "2016", "$160", 0, 1764, 1444, "#374fc0"],
+    ["319:40240", "common", "BHM", "908656-001", "2017", "$150", 0, 4, 1604, "#b1b0af"],
+    ["319:36603", "common", "Max Orange", "344613-061", "2009", "$115", 0, 164, 1604, "#49282e"],
+    ["319:43306", "common", "Human Highlight", "555088-017", "2013", "$140", 0, 324, 1604, "#bc4f4f"],
+    ["319:39269", "common", "CO.JP Midnight Navy", "DC1788-100", "2020", "$170", 0, 484, 1604, "#dbdce0"],
+    ["319:41464", "common", "Nouveau Snakeskin", "819176-001", "2016", "$150", 0, 644, 1604, "#baadad"],
+    ["319:40738", "common", "Election Day", "332550-401", "2012", "$110", 0, 804, 1604, "#9c7684"],
+    ["319:40100", "common", "Fearless Melody Ehsani (L)", "CQ7629-100", "2019", "$130", 0, 964, 1604, "#cee5ec"],
+    ["319:39429", "common", "Japan Grey", "136060-001", "2001", "$150", 0, 1124, 1604, "#a3a3a3"],
+    ["319:36971", "common", "Black Perforated", "555088-002", "2017", "$160", 0, 1284, 1604, "#1d1e24"],
+    ["319:34347", "common", "Gatorade Blue Lagoon", "AJ5997-455", "2017", "$175", 0, 1444, 1604, "#76a9bb"],
+    ["319:40643", "common", "Pollen", "555088-701", "2021", "$170", 0, 1604, 1604, "#7d6f21"],
+    ["319:39349", "common", "Japan Black", "136060-002", "2001", "$100", 0, 1764, 1604, "#2a2c36"],
+    ["319:42817", "common", "Lucky Green", "DB4612-300", "2020", "$170", 0, 4, 1764, "#1a7e46"],
+    ["319:41772", "common", "Black Elephant", "839115-013", "2016", "$140", 0, 164, 1764, "#d2d2d2"],
+    ["319:39203", "common", "CO Japan Neutral Grey", "DC1788-029", "2020", "$170", 0, 324, 1764, "#4b4c51"],
+    ["319:38563", "common", "RTTG D.C.", "539542-435", "2012", "$130", 0, 484, 1764, "#cccccb"],
+    ["319:43008", "common", "Obsidian UNC", "555088-140", "2019", "$160", 0, 644, 1764, "#c7ccd1"],
+    ["319:39080", "common", "Bronze Medal", "332550-016", "2016", "$140", 0, 804, 1764, "#73946e"],
+    ["319:38267", "common", "White Black Volt University Gold", "555088-118", "2021", "$170", 0, 964, 1764, "#b7d619"],
+    ["319:43405", "common", "Gym Red", "555088-601", "2014", "$140", 0, 1124, 1764, "#edd4d6"],
+    ["319:38964", "common", "Bred Patent", "555088-063", "2021", "$170", 0, 1284, 1764, "#c3b2b2"],
+    ["319:40369", "common", "Hyper Royal Smoke Grey", "555088-402", "2021", "$170", 0, 1444, 1764, "#d5e3f7"],
+    ["319:43121", "common", "Gym Red Wolf Grey", "AA3993-601", "2018", "$150", 0, 1604, 1764, "#fabdbd"],
+    ["319:38933", "common", "Bred Toe", "555088-610", "2018", "$160", 0, 1764, 1764, "#beabab"],
+    ["555:25569", "common", "Hare Jordan", "719551-123", "2015", "$125", 1, 4, 4, "#f0dedb"],
+    ["319:38085", "common", "CELTICS", "555088-315", "2013", "$140", 1, 164, 4, "#e1e2d1"],
+    ["319:41638", "common", "Fathers Day Tweed", "325514-101", "2008", "$100", 1, 324, 4, "#3b3a3f"],
+    ["661:23230", "common", "Anodized Silver", "414823-001", "2010", "$150", 1, 484, 4, "#ababab"],
+    ["319:34419", "common", "Gatorade Cyber", "AJ5997-345", "2017", "$175", 1, 644, 4, "#bbc179"],
+    ["319:37658", "common", "Equality Black History Month 2018", "AQ7474-001", "2018", "$145", 1, 804, 4, "#989898"],
+    ["319:42690", "common", "Rookie of the Year", "555088-700", "2018", "$160", 1, 964, 4, "#9d7545"],
+    ["319:37738", "common", "Yin Yang Black", "555088-011", "2016", "$160", 1, 1124, 4, "#d3d3d3"],
+    ["319:42407", "common", "YOTS", "597829-901", "2013", "$300", 1, 1284, 4, "#dad0e0"],
+    ["418:22808", "common", "A Ma Maniére", "DO7097-100", "2021", "$200", 1, 1444, 4, "#e8e3e2"],
+    ["319:43067", "common", "Black Royal Blue", "555088-085", "2013", "$140", 1, 1604, 4, "#b5bbc7"],
+    ["429:22628", "common", "RTTG Vegas", "539542-035", "2012", "$130", 1, 1764, 4, "#dbd9d8"],
+    ["319:40909", "common", "BHM 2015", "579591-010", "2015", "$130", 1, 4, 164, "#b7b7b8"],
+    ["319:36782", "common", "Homage To Home (Non-numbered)", "861428-061", "2018", "$160", 1, 164, 164, "#9d7676"],
+    ["319:39116", "common", "Olympic", "136085-161", "2008", "$100", 1, 324, 164, "#e8e4e0"],
+    ["319:43362", "common", "Game Royal", "555088-403", "2018", "$160", 1, 484, 164, "#b5bccd"],
+    ["515:25114", "common", "Do the Right Thing", "332550-131", "2009", "$110", 1, 644, 164, "#c7efe6"],
+    ["319:43659", "common", "Bred Banned", "555088-001", "2016", "$160", 1, 804, 164, "#bda9a9"],
+    ["319:40531", "common", "Track Red", "555088-112", "2018", "$160", 1, 964, 164, "#685d66"],
+    ["319:39841", "common", "Metallic Zinc", "332550-003", "2009", "$115", 1, 1124, 164, "#dcdcdc"],
+    ["319:36261", "common", "Anodized Black", "414823-002", "2010", "$150", 1, 1284, 164, "#7f7f7f"],
+    ["319:36842", "common", "85 Varsity Red", "BQ4422-600", "2020", "$200", 1, 1444, 164, "#cea749"],
+    ["319:40308", "common", "Black Vachetta Tan", "845018-030", "2016", "$160", 1, 1604, 164, "#272830"],
+    ["319:34446", "common", "Gatorade Rush Violet", "AJ5997-555", "2017", "$175", 1, 1764, 164, "#706dab"],
+    ["319:38235", "common", "Camo 3M Bred", "AA3993-032", "2017", "$145", 1, 4, 324, "#d1b9b9"],
+    ["319:37045", "common", "Top 3 (L)", "555088-026", "2016", "$160", 1, 164, 324, "#decdd2"],
+    ["319:36506", "common", "Pewter", "332134-001", "2009", "$105", 1, 324, 324, "#e3dfdf"],
+    ["319:40476", "common", "Turbo Green", "555088-311", "2019", "$160", 1, 484, 324, "#54aaa6"],
+    ["319:42620", "common", "White University Blue Black", "555088-134", "2021", "$170", 1, 644, 324, "#525969"],
+    ["429:22708", "common", "RTTG Barcelona", "539541-035", "2012", "$130", 1, 804, 324, "#f2e2df"],
+    ["319:37110", "common", "Armed Forces", "325514-231", "2008", "$100", 1, 964, 324, "#b0ac63"],
+    ["319:38060", "common", "KNICKS", "555088-407", "2013", "$140", 1, 1124, 324, "#e7dae1"],
+    ["319:39578", "common", "Black Patent", "332550-017", "2016", "$150", 1, 1284, 324, "#222226"],
+    ["319:36390", "common", "Vintage Coral", "555088-800", "2018", "$160", 1, 1444, 324, "#f7b4af"],
+    ["515:25352", "common", "Do the Right Thing", "332550-161", "2009", "$110", 1, 1604, 324, "#f1cfd1"],
+    ["319:42853", "common", "Black Satin Gym Red", "555088-060", "2020", "$170", 1, 1764, 324, "#242229"],
+    ["319:41176", "common", "Nouveau BHM", "836749-045", "2016", "$150", 1, 4, 484, "#b3b3b3"],
+    ["319:34473", "common", "Gatorade Orange Peel", "AJ5997-880", "2017", "$175", 1, 164, 484, "#c29651"],
+    ["319:37814", "common", "Camo 3M Shadow", "AA3993-034", "2017", "$145", 1, 324, 484, "#393539"],
+    ["319:37018", "common", "Top 3 (R)", "555088-026", "2016", "$160", 1, 484, 484, "#dbced5"],
+    ["319:39044", "common", "Silver Medal", "332550-602", "2016", "$140", 1, 644, 484, "#879f79"],
+    ["319:40962", "common", "Wings", "AA2887-035", "2017", "$200", 1, 804, 484, "#302913"],
+    ["319:39225", "common", "Metallic Red", "555088-103", "2017", "$160", 1, 964, 484, "#f3e4e3"],
+    ["319:40174", "common", "Fearless Maison Chateau Rouge", "CU2803-200", "2019", "$130", 1, 1124, 484, "#c1d7dd"],
+    ["319:38322", "common", "Shadow", "332550-001", "2009", "$115", 1, 1284, 484, "#c1c1c1"],
+    ["319:40133", "common", "RE2PECT (Derek Jeter)", "555088-008", "2017", "$160", 1, 1444, 484, "#cecece"],
+    ["319:43379", "common", "Satin Black Toe (W)", "CD0461-016", "2019", "$160", 1, 1604, 484, "#dbc4c4"],
+    ["319:39155", "common", "Patent Gold Toe", "861428-007", "2018", "$160", 1, 1764, 484, "#cfcac4"],
+    ["319:37986", "common", "Wheat", "555088-710", "2017", "$160", 1, 4, 644, "#d1c2b5"],
+    ["319:36679", "common", "Stealth Team Red Light Graphite", "332550-004", "2010", "$110", 1, 164, 644, "#6e6e71"],
+    ["319:37453", "common", "Equality Black History Month 2013", "579591-012", "2013", "$115", 1, 324, 644, "#bccd9f"],
+    ["683:22423", "common", "Anodized Green", "414823-301", "2010", "$150", 1, 484, 644, "#b9d166"],
+    ["319:37777", "common", "Deep Royal", "332550-420", "2016", "$150", 1, 644, 644, "#252536"],
+    ["319:38007", "common", "Guava Ice", "555088-801", "2018", "$160", 1, 804, 644, "#dbcbc6"],
+    ["319:43086", "common", "Royal", "555088-007", "2017", "$160", 1, 964, 644, "#adb3bf"],
+    ["319:36284", "common", "Paris Saint Germain", "AR3254-001", "2018", "$160", 1, 1124, 644, "#bdb0b5"],
+    ["319:36442", "common", "Quai 54 (R)", "AH1040-054", "2017", "$160", 1, 1284, 644, "#ab4343"],
+    ["319:37851", "common", "Camo 3M Wolf Grey", "AA3993-027", "2017", "$145", 1, 1444, 644, "#aeadbc"],
+    ["319:42488", "common", "Clay Green", "555088-135", "2018", "$160", 1, 1604, 644, "#61646a"],
+    ["319:42200", "common", "Leroy Smith", "386186-071", "2009", "$135", 1, 1764, 644, "#c9c5d8"],
+    ["319:40192", "common", "Jeter RE2PECT", "715854-402", "2014", "$160", 1, 4, 804, "#989bad"],
+    ["319:36338", "common", "Olive Canvas", "555088-300", "2018", "$160", 1, 164, 804, "#959b48"],
+    ["319:42987", "common", "Royal Toe", "555088-041", "2020", "$170", 1, 324, 804, "#c1c4c9"],
+    ["319:38039", "common", "Red Suede", "332550-603", "2017", "$140", 1, 484, 804, "#ce454d"],
+    ["319:41938", "common", "Opening Day Black", "325514-012", "2008", "$100", 1, 644, 804, "#5e5e5e"],
+    ["319:38879", "common", "Black Toe", "555088-184", "2013", "$140", 1, 804, 804, "#5f565e"],
+    ["319:43527", "common", "Barons", "555088-104", "2014", "$140", 1, 964, 804, "#999999"],
+    ["319:42636", "common", "UNC", "555088-117", "2015", "$150", 1, 1124, 804, "#b6e4fe"],
+    ["319:39247", "common", "Metallic Navy", "555088-106", "2016", "$160", 1, 1284, 804, "#89aed9"],
+    ["319:42901", "common", "Fearless Metallic Rose Gold", "CU6690-006", "2019", "$160", 1, 1444, 804, "#26252c"],
+    ["319:36994", "common", "White Perforated", "555088-100", "2017", "$160", 1, 1604, 804, "#f4f5f7"],
+    ["319:39309", "common", "Japan Navy", "136060-101", "2001", "$100", 1, 1764, 804, "#898a8e"],
+    ["319:37955", "common", "Black Gym Red", "555088-061", "2019", "$160", 1, 4, 964, "#c7bbbb"],
+    ["319:42936", "common", "Pine Green", "555088-302", "2018", "$160", 1, 164, 964, "#c0d6ca"],
+    ["319:36474", "common", "Quai 54 (L)", "AH1040-054", "2017", "$160", 1, 324, 964, "#a64548"],
+    ["319:40690", "common", "Storm Blue", "555088-127", "2016", "$160", 1, 484, 964, "#d8deef"],
+    ["319:43321", "common", "Tokyo Bio Hack", "555088-201", "2020", "$170", 1, 644, 964, "#c5c7c6"],
+    ["319:38906", "common", "Black Toe", "555088-125", "2016", "$160", 1, 804, 964, "#d8cdcc"],
+    ["319:36531", "common", "Fengshui", "332550-442", "2015", "$140", 1, 964, 964, "#41bcb7"],
+    ["319:38282", "common", "Shadow 2.0", "555088-035", "2021", "$170", 1, 1124, 964, "#dbdbdb"],
+    ["319:36239", "common", "Anodized Cranberry", "414823-601", "2010", "$150", 1, 1284, 964, "#ca353a"],
+    ["319:43499", "common", "Legend Blue", "554724-127", "2014", "$105", 1, 1444, 964, "#74a4d0"],
+    ["319:41002", "common", "Nouveau Navy Snake", "819176-407", "2016", "$150", 1, 1604, 964, "#bbbec7"],
+    ["319:43158", "common", "Neutral Grey", "BQ4422-100", "2021", "$200", 1, 1764, 964, "#7a7d85"],
+    ["319:43181", "common", "Deconstructed Black", "867338-010", "2016", "$123", 1, 4, 1124, "#c8c8c8"],
+    ["319:42918", "common", "Shattered Backboard 3.0", "555088-028", "2019", "$160", 1, 164, 1124, "#cbbdb1"],
+    ["319:38131", "common", "Pure Platinum Desert Sand", "AA3993-030", "2018", "$145", 1, 324, 1124, "#fafaf9"],
+    ["319:42673", "common", "Black Metallic Gold", "555088-032", "2020", "$170", 1, 484, 1124, "#1f1f23"],
+    ["319:37072", "common", "Yin Yang White", "555088-102", "2016", "$160", 1, 644, 1124, "#efefef"],
+    ["319:42504", "common", "Defiant White Black Gym Red", "CD6579-071", "2019", "$175", 1, 804, 1124, "#c9a418"],
+    ["319:40355", "common", "Light Fusion Red", "555088-603", "2021", "$170", 1, 964, 1124, "#6caee8"],
+    ["319:43563", "common", "Chicago", "555088-101", "2015", "$160", 1, 1124, 1124, "#f1cac9"],
+    ["319:36908", "common", "Homage To Home Chicago (Numbered)", "AR9880-023", "2018", "$160", 1, 1284, 1124, "#864a49"],
+    ["319:38110", "common", "Blue Suede", "332550-404", "2017", "$140", 1, 1444, 1124, "#3e78f0"],
+    ["319:40561", "common", "Smoke Grey", "555088-126", "2020", "$170", 1, 1604, 1124, "#d1d0d3"],
+    ["319:40624", "common", "Hyper Royal", "555088-401", "2018", "$160", 1, 1764, 1124, "#c4ccf1"],
+    ["319:43137", "common", "Sail", "555088-114", "2017", "$160", 1, 4, 1284, "#cecad1"],
+    ["319:36872", "common", "Chicago Bulls 2009", "332550-061", "2009", "$110", 1, 164, 1284, "#2e1d22"],
+    ["319:40447", "common", "White Gym Red", "554724-101", "2014", "$105", 1, 324, 1284, "#f7d0cf"],
+    ["319:42739", "common", "Phantom Gym Red", "555088-160", "2019", "$160", 1, 484, 1284, "#c1bac1"],
+    ["319:42455", "common", "Court Purple", "555088-501", "2018", "$160", 1, 644, 1284, "#aea6c8"],
+    ["319:37921", "common", "Black White CDP", "332550-011", "2008", "$155", 1, 804, 1284, "#d4d4d4"],
+    ["319:42563", "common", "Bloodline", "555088-062", "2019", "$160", 1, 964, 1284, "#c39595"],
+    ["319:41705", "common", "Fathers Day Black White", "325514-011", "2008", "$100", 1, 1124, 1284, "#2f3036"],
+    ["611:22418", "common", "Georgetown", "BQ4422-400", "2022", "$200", 1, 1284, 1284, "#c6c7ce"],
+    ["319:42884", "common", "Light Army Rust Shadow Patina", "555088-033", "2021", "$170", 1, 1444, 1284, "#29292f"]
+  ];
+  const TIERS = {
+    ultimate: { label: "ULTIMATE", rim: "#a259ff" },
+    legend:   { label: "LEGEND",   rim: "#ff3b3b" },
+    epic:     { label: "EPIC",     rim: "#f2c14e" },
+    collab:   { label: "COLLABORATION", rim: "#ff8a2a" },
+    rare:     { label: "RARE",     rim: "#4cc3ff" },
+    special:  { label: "SPECIAL",  rim: "#3ddc84" },
+    common:   { label: "COMMON",   rim: "#000000" },
+  };
+  const PAIRS = ROWS.map((r, i) => {
+    const c = { i, node: r[0], tier: r[1], name: r[2], code: r[3], year: r[4], retail: r[5], s: r[6], cx: r[7], cy: r[8], side: r[9] };
+    const dated = /^\d{4}$/.test(c.year);
+    c.desc = `${TIERS[c.tier].label} tier. ${dated ? `Released in ${c.year}` : "Never released"}${dated && c.retail !== "N/A" ? ` at ${c.retail} retail` : ""}.`;
+    return c;
+  });
+
+  // ---------- Globe (WebGL: every tile is a block with its Figma thumbnail on the face) ----------
+  const stage = document.getElementById("stage");
+  const $z = id => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const N = PAIRS.length;
+  const R = 10;                                   // globe radius, world units
+  const TILE = R * Math.sqrt(4 * Math.PI / N) * 0.74;
+  const DEPTH = TILE * 0.16;
+  const LIFT = TILE * 0.5;
+
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
+  catch (_) { stage.innerHTML = '<p class="nogl">This globe needs WebGL. Try a recent Chrome, Safari or Firefox.</p>'; return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x120f24, 30, 60);    // pushes the far side of the globe into the night
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 400);
+  scene.add(camera);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+  keyLight.position.set(-6, 9, 10);               // rides with the camera, so shading stays top-left while the globe spins
+  camera.add(keyLight);
+  const globe = new THREE.Group();
+  scene.add(globe);
+
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  const lit = new THREE.MeshLambertMaterial();
+  const tileMesh = new THREE.InstancedMesh(box, lit, N);
+  const rimMesh = new THREE.InstancedMesh(box, new THREE.MeshBasicMaterial(), N);   // unlit, so tier rims glow
+  tileMesh.frustumCulled = rimMesh.frustumCulled = false;   // bounds change when the globe unfolds
+  globe.add(rimMesh, tileMesh);
+
+  // thumbnails come from two texture sheets; each face gets a clone pointing at its cell
+  const loader = new THREE.TextureLoader();
+  const faceClones = SHEETS.map(() => []);
+  const sheets = SHEETS.map((url, i) => {
+    const tex = loader.load(url, () => faceClones[i].forEach(c => { c.needsUpdate = true; }));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;      // keep the pixel art hard-edged up close
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return tex;
+  });
+  const faceGeo = new THREE.PlaneGeometry(1, 1);
+  function faceFor(p) {
+    const tex = sheets[p.s].clone();
+    tex.repeat.set(THUMB / SHEET_PX, THUMB / SHEET_PX);
+    tex.offset.set(p.cx / SHEET_PX, 1 - (p.cy + THUMB) / SHEET_PX);
+    faceClones[p.s].push(tex);
+    const mesh = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    mesh.matrixAutoUpdate = false;
+    globe.add(mesh);
+    return mesh;
+  }
+
+  const tiles = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let k = 0; k < N; k++) {
+    const y = 1 - ((k + 0.5) / N) * 2;
+    const r = Math.sqrt(1 - y * y);
+    const th = golden * k;
+    const n = new THREE.Vector3(Math.cos(th) * r, y, Math.sin(th) * r);
+    tiles.push({ k, pair: null, x: n.x, y: n.y, z: n.z, n, lift: 0, dim: 1 });
+  }
+  // one slot per pair, scattered so the tiers mix across the globe
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const order = tiles.map((_, i) => i).sort(() => rnd() - 0.5);
+  order.forEach((slot, j) => { tiles[slot].pair = PAIRS[j]; tiles[slot].face = faceFor(PAIRS[j]); });
+
+  // board layout for UNFOLD: tiers in board order, each tier starts a new row under its label
+  const TIER_ORDER = Object.keys(TIERS);
+  const COLS = 30, SP = TILE * 1.22, STAG = 0.4;
+  const flatLabels = [];
+  let FLAT_W = COLS * SP, FLAT_H = 0;
+  {
+    const cells = [];
+    let row = 0;
+    TIER_ORDER.forEach(tier => {
+      const list = tiles.filter(t => t.pair.tier === tier).sort((a, b) => a.pair.i - b.pair.i);
+      if (!list.length) return;
+      flatLabels.push({ tier, row, count: list.length });
+      row += 0.75;
+      list.forEach((t, j) => cells.push([t, row + Math.floor(j / COLS), j % COLS]));
+      row += Math.ceil(list.length / COLS) + 0.45;
+    });
+    FLAT_H = row * SP;
+    cells.forEach(([t, r, c], i) => {
+      t.fp = new THREE.Vector3((c - (COLS - 1) / 2) * SP, FLAT_H / 2 - r * SP - SP / 2, 0);
+      t.delay = (i / cells.length) * STAG;            // tiles leave the globe one after another
+    });
+    flatLabels.forEach(l => { l.pos = new THREE.Vector3(-(COLS / 2) * SP + SP * 0.05, FLAT_H / 2 - l.row * SP - SP * 0.12, 0); });
+  }
+
+  const dummy = new THREE.Object3D(), local = new THREE.Matrix4().makeTranslation(0, 0, 0.58), col = new THREE.Color(), aim = new THREE.Vector3();
+  tiles.forEach(t => {
+    dummy.position.copy(t.n).multiplyScalar(R);
+    dummy.lookAt(aim.copy(t.n).multiplyScalar(R * 3));
+    t.qS = dummy.quaternion.clone();
+  });
+  const qFlat = new THREE.Quaternion(), zAx = new THREE.Vector3(), sp = new THREE.Vector3();
+  const easeIO = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  let morph = 0, flat = false;                     // morph: 0 globe … 1 board
+  const tileMix = t => easeIO(Math.min(1, Math.max(0, (morph - t.delay) / (1 - STAG))));
+  function place(t) {
+    const e = tileMix(t);
+    dummy.position.lerpVectors(sp.copy(t.n).multiplyScalar(R), t.fp, e);
+    dummy.quaternion.slerpQuaternions(t.qS, qFlat, e);
+    dummy.position.add(zAx.set(0, 0, 1).applyQuaternion(dummy.quaternion).multiplyScalar(t.lift));
+    const s = (t.pair.tier === "ultimate" ? 1.3 : 1) * (1 + (t.lift / LIFT) * 0.3);
+    dummy.scale.set(TILE * s, TILE * s, DEPTH);
+    dummy.updateMatrix(); tileMesh.setMatrixAt(t.k, dummy.matrix);
+    t.face.matrix.multiplyMatrices(dummy.matrix, local);   // thumbnail sits just proud of the block's front
+    t.face.matrixWorldNeedsUpdate = true;
+    dummy.scale.set(TILE * s * 1.08, TILE * s * 1.08, DEPTH * 0.8);
+    dummy.updateMatrix(); rimMesh.setMatrixAt(t.k, dummy.matrix);
+  }
+  function paintTile(t) {
+    tileMesh.setColorAt(t.k, col.set(t.pair.side).multiplyScalar(t.dim));
+    rimMesh.setColorAt(t.k, col.set(TIERS[t.pair.tier].rim).multiplyScalar(t.dim));
+    t.face.material.color.setScalar(t.dim);
+  }
+  tiles.forEach(t => { place(t); paintTile(t); });
+  [tileMesh, rimMesh].forEach(o => { o.instanceMatrix.needsUpdate = true; });
+  tileMesh.instanceColor.needsUpdate = rimMesh.instanceColor.needsUpdate = true;
+
+  let fitDist = 40, flatFit = 60;
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    const tn = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    fitDist = Math.max(R / (0.62 * tn), R / (0.86 * tn * camera.aspect));
+    flatFit = Math.max((FLAT_H / 2) / (0.66 * tn), (FLAT_W / 2) / (0.9 * tn * camera.aspect));
+  }
+  resize();
+  addEventListener("resize", resize);
+
+  let rotX = 0.2, rotY = 0, vx = 0, vy = 0, goalX = 0.2, goalY = 0, spin = 0;
+  let target = null;           // {x, y} rotation the globe eases toward
+  let paused = false;
+  let zoom = 1, zoomTarget = 1;
+  const ZMIN = 0.6;
+  const setZoom = z => { zoomTarget = Math.max(ZMIN, Math.min(flat ? 6 : 3, z)); };
+  const pan = new THREE.Vector2(), panGoal = new THREE.Vector2();
+  const clampPan = () => panGoal.set(Math.max(-FLAT_W / 2, Math.min(FLAT_W / 2, panGoal.x)), Math.max(-FLAT_H / 2, Math.min(FLAT_H / 2, panGoal.y)));
+  let lastT = performance.now();
+  let hover = null, opened = null, hoverAt = null;
+
+  const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pick(cx, cy) {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObject(tileMesh, false)[0];   // faces sit on their block, so the block hit covers them
+    const t = hit && tiles[hit.instanceId];
+    return t && t.dim === 1 ? t : null;
+  }
+
+  function frame() {
+    const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    const mGoal = flat ? 1 : 0, morphing = morph !== mGoal;
+    if (morphing) morph = reduce ? mGoal : Math.max(0, Math.min(1, morph + Math.sign(mGoal - morph) * dt / 1.6));
+    const em = easeIO(morph);
+    if (target) {
+      // fly to a picked tile on an ease-in-out curve
+      const k = target.dur ? Math.min(1, (performance.now() - target.t0) / target.dur) : 1;
+      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      rotY = goalY = target.fy + (target.ty - target.fy) * e;
+      rotX = goalX = target.fx + (target.tx - target.fx) * e;
+    } else {
+      if (!dragging) {
+        goalY += vy; goalX += vx;
+        vy *= 0.95; vx *= 0.95;
+        // auto-spin eases back in once the throw has died down
+        const want = !paused && !flat && !reduce && Math.abs(vy) < 0.002 ? 0.0018 : 0;
+        spin += (want - spin) * 0.015;
+        goalY += spin;
+      } else spin = 0;
+      goalX = Math.max(-1.25, Math.min(1.25, goalX));
+      // the globe trails the pointer slightly instead of snapping to it
+      rotY += (goalY - rotY) * 0.14;
+      rotX += (goalX - rotX) * 0.14;
+    }
+    zoom += (zoomTarget - zoom) * 0.16;
+    globe.rotation.set(rotX, rotY, 0);
+    pan.x += (panGoal.x - pan.x) * 0.12;
+    pan.y += (panGoal.y - pan.y) * 0.12;
+    const dG = Math.max(R * 1.35, fitDist / zoom), dF = flatFit / zoom;
+    const d = dG + (dF - dG) * em;
+    camera.position.set(pan.x * em, pan.y * em, d);
+    scene.fog.near = d - R * 0.3 + em * 500;      // no fog on the board
+    scene.fog.far = d + R * 1.5 + em * 1000;
+    drawLabels(em);
+
+    if (hoverAt && !dragging) {
+      const h = pick(hoverAt.x, hoverAt.y);
+      if (h !== hover) { hover = h; stage.style.cursor = h ? "pointer" : ""; if (h) blip(1200, 0.025); }
+      hoverAt = null;
+    }
+    let dirty = false;
+    for (const t of tiles) {
+      const to = t === hover || t === opened ? LIFT : 0;
+      const lifting = Math.abs(t.lift - to) > 0.002;
+      if (lifting) t.lift += (to - t.lift) * 0.22;
+      if (lifting || morphing) { place(t); dirty = true; }
+    }
+    if (dirty) {
+      [tileMesh, rimMesh].forEach(o => { o.instanceMatrix.needsUpdate = true; });
+      tileMesh.computeBoundingSphere();               // keeps picking right while tiles move
+    }
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // drag + inertia, pinch + wheel zoom
+  let dragging = false, downX = 0, downY = 0, lastX = 0, lastY = 0, moved = 0;
+  const pts = new Map();
+  let pinchDist = 0, pinchZoom = 1;
+  const spread = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  stage.addEventListener("pointerdown", e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { pinchDist = spread(); pinchZoom = zoomTarget; moved = 99; return; }
+    dragging = true; target = null; goalX = rotX; goalY = rotY;
+    downX = lastX = e.clientX; downY = lastY = e.clientY; moved = 0;
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add("dragging");
+  });
+  stage.addEventListener("pointermove", e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { setZoom(pinchZoom * spread() / pinchDist); vx = vy = 0; return; }
+    if (!dragging) { if (e.pointerType === "mouse") hoverAt = { x: e.clientX, y: e.clientY }; return; }
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    moved = Math.max(moved, Math.hypot(e.clientX - downX, e.clientY - downY));
+    if (flat) {
+      const wpp = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / stage.clientHeight;
+      panGoal.x -= dx * wpp; panGoal.y += dy * wpp;
+      clampPan();
+    } else {
+      vy = dx * 0.006 / zoom; vx = dy * 0.006 / zoom;
+      goalY += vy; goalX += vx;
+    }
+    if (moved > 6 && hover) { hover = null; stage.style.cursor = ""; }
+  });
+  stage.addEventListener("pointerleave", () => { hover = null; stage.style.cursor = ""; });
+  const end = e => {
+    pts.delete(e.pointerId);
+    if (pts.size === 1) { const p = [...pts.values()][0]; lastX = p.x; lastY = p.y; return; }
+    if (!dragging) return;
+    dragging = false;
+    stage.classList.remove("dragging");
+    if (moved < 6) { const t = pick(e.clientX, e.clientY); if (t) { vx = vy = 0; open(t); } }
+  };
+  stage.addEventListener("pointerup", end);
+  stage.addEventListener("pointercancel", end);
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    setZoom(zoomTarget * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+  }, { passive: false });
+  $z("zin").addEventListener("click", () => { setZoom(zoomTarget * 1.3); blip(760); });
+  $z("zout").addEventListener("click", () => { setZoom(zoomTarget / 1.3); blip(520); });
+  $z("zreset").addEventListener("click", () => { setZoom(1); blip(640); });
+  addEventListener("keydown", e => {
+    if (!document.getElementById("overlay").hidden) return;
+    if (e.key === "+" || e.key === "=") setZoom(zoomTarget * 1.3);
+    if (e.key === "-" || e.key === "_") setZoom(zoomTarget / 1.3);
+    if (e.key === "0") setZoom(1);
+    if (e.key === "u" || e.key === "U") setFlat(!flat);
+  });
+
+  // keyboard / screen reader access to every pair
+  const kb = document.getElementById("kb-list");
+  PAIRS.forEach(p => {
+    const b = document.createElement("button");
+    b.textContent = `${p.name}, ${p.year}`;
+    b.addEventListener("click", () => open(tiles.find(t => t.pair === p)));
+    kb.appendChild(b);
+  });
+
+  // section labels follow the board as it pans and zooms
+  const labelBox = $z("tierLabels"), proj = new THREE.Vector3();
+  const labelEls = flatLabels.map(l => {
+    const el = document.createElement("span");
+    el.innerHTML = `<i style="--tc:${TIERS[l.tier].rim === "#000000" ? "#f3ecdc" : TIERS[l.tier].rim}"></i>${TIERS[l.tier].label} (${l.count})`;
+    labelBox.appendChild(el);
+    return el;
+  });
+  function drawLabels(em) {
+    const show = em > 0.6;
+    labelBox.hidden = !show;
+    if (!show) return;
+    globe.updateMatrixWorld();
+    camera.updateMatrixWorld();
+    const w = stage.clientWidth, h = stage.clientHeight, a = ((em - 0.6) / 0.4).toFixed(3);
+    flatLabels.forEach((l, i) => {
+      proj.copy(l.pos).applyMatrix4(globe.matrixWorld).project(camera);
+      labelEls[i].style.transform = `translate(${((proj.x + 1) / 2 * w).toFixed(1)}px, ${((1 - proj.y) / 2 * h - 14).toFixed(1)}px)`;
+      labelEls[i].style.opacity = a;
+    });
+  }
+
+  // UNFOLD: globe ⇄ board
+  const unfoldBtn = $z("unfold");
+  function setFlat(on) {
+    flat = on;
+    hover = null; stage.style.cursor = "";
+    unfoldBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    unfoldBtn.textContent = on ? "FOLD ◎" : "UNFOLD ▦";
+    $z("hintText").textContent = on ? "DRAG TO PAN · SCROLL TO ZOOM · CLICK TO INSPECT" : "DRAG TO SPIN · SCROLL TO ZOOM · CLICK TO INSPECT";
+    vx = vy = 0; spin = 0;
+    if (on) {
+      const home = Math.round(rotY / (2 * Math.PI)) * 2 * Math.PI;   // square the globe up to the camera first
+      target = { fy: rotY, fx: rotX, ty: home, tx: 0, t0: performance.now(), dur: reduce ? 0 : 1100 };
+      panGoal.set(0, 0); pan.set(0, 0);
+    } else {
+      target = null; goalX = rotX; goalY = rotY;
+    }
+    setZoom(1);
+    blip(on ? 520 : 880); setTimeout(() => blip(on ? 880 : 520), 90);
+  }
+  unfoldBtn.addEventListener("click", () => setFlat(!flat));
+
+  function faceTile(t) {
+    if (flat) { panGoal.set(t.fp.x, t.fp.y); clampPan(); return; }
+    const th = Math.atan2(-t.x, t.z);
+    const zp = Math.hypot(t.x, t.z);
+    const ph = Math.atan2(t.y, zp);
+    target = { fy: rotY, fx: rotX, ty: rotY + wrap(th - rotY), tx: ph, t0: performance.now(), dur: reduce ? 0 : 900 };
+  }
+
+  // ---------- Filters ----------
+  let filter = "all";
+  const match = p => filter === "all" || p.tier === filter;
+  document.querySelectorAll(".chip").forEach(btn => btn.addEventListener("click", () => {
+    filter = btn.dataset.f;
+    document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+    tiles.forEach(t => { t.dim = match(t.pair) ? 1 : 0.16; paintTile(t); });
+    tileMesh.instanceColor.needsUpdate = rimMesh.instanceColor.needsUpdate = true;
+    document.getElementById("count").textContent = tiles.filter(t => match(t.pair)).length;
+    blip(520);
+  }));
+
+  // ---------- Sound ----------
+  let soundOn = false, ac = null;
+  const soundBtn = document.getElementById("sound");
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundBtn.setAttribute("aria-pressed", soundOn);
+    soundBtn.textContent = soundOn ? "SOUND ON" : "SOUND OFF";
+    if (soundOn) { try { ac = ac || new AudioContext(); } catch (_) { soundOn = false; } blip(660); }
+  });
+  function blip(f, dur = 0.07) {
+    if (!soundOn || !ac) return;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "square"; o.frequency.value = f;
+    g.gain.setValueAtTime(0.06, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + dur);
+  }
+
+  // ---------- Item window ----------
+  const overlay = document.getElementById("overlay");
+  const $ = id => document.getElementById(id);
+  let current = null, typer = null, lastFocus = null;
+
+  function open(t) {
+    opened = t;
+    faceTile(t);
+    paused = true;
+    show(t.pair);
+    lastFocus = document.activeElement;
+    overlay.hidden = false;
+    $("close").focus();
+    blip(880); setTimeout(() => blip(1320), 70);
+  }
+  // crisp enlargement of one thumbnail, cut from its texture sheet
+  function thumb(p, scale) {
+    const src = sheets[p.s].image;
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = THUMB * scale;
+    const g = cv.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    if (src && src.complete) g.drawImage(src, p.cx, p.cy, THUMB, THUMB, 0, 0, cv.width, cv.height);
+    return cv.toDataURL();
+  }
+  function show(p) {
+    current = p;
+    const card = $("card");
+    const rgb = parseInt(p.side.slice(1), 16), light = (0.299 * (rgb >> 16) + 0.587 * (rgb >> 8 & 255) + 0.114 * (rgb & 255)) > 150;
+    card.style.setProperty("--cbg", p.side);
+    card.style.setProperty("--clbl", light ? "#111" : "#f4f1ea");
+    const fl = $("flip");
+    fl.style.animation = "none"; void fl.offsetWidth; fl.style.animation = "";
+    setTurn(false);
+    $("b-serial").textContent = "#" + String(p.i + 1).padStart(3, "0");
+    $("b-name").textContent = `${p.name.toUpperCase()} · ${p.year}`;
+    const img = thumb(p, 4);
+    $("b-sw").innerHTML = `<img src="${img}" alt="" width="96" height="96">`;
+    $("c-img").src = img;
+    $("c-img").alt = `Pixel art of the Air Jordan 1 ${p.name}`;
+    $("c-yr").textContent = "";
+    $("c-tag").textContent = TIERS[p.tier].label;
+    $("c-tag").style.color = p.tier === "common" ? "" : TIERS[p.tier].rim;
+    $("c-name").textContent = p.name.toUpperCase();
+    $("c-nick").textContent = p.code;
+    $("sel").textContent = String(p.i + 1).padStart(3, "0");
+    const esc = v => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    $("c-stats").innerHTML = [["STYLE", p.code], ["RELEASE", p.year], ["RETAIL", p.retail], ["TIER", TIERS[p.tier].label]]
+      .map(([k, v]) => `<div class="stat"><dt>${k}</dt><dd class="txt">${esc(v)}</dd></div>`).join("");
+    $("c-sw").innerHTML = `<small>FIGMA NODE ${esc(p.node)}</small>`;
+    clearInterval(typer);
+    const el = $("c-desc");
+    if (reduce) { el.textContent = p.desc; return; }
+    let n = 0;
+    el.innerHTML = '<span class="cursor">█</span>';
+    typer = setInterval(() => {
+      n++;
+      el.innerHTML = p.desc.slice(0, n).replace(/&/g, "&amp;").replace(/</g, "&lt;") + '<span class="cursor">█</span>';
+      if (n % 3 === 0) blip(300 + Math.random() * 200, 0.02);
+      if (n >= p.desc.length) clearInterval(typer);
+    }, 22);
+  }
+  function step(dir) {
+    const list = PAIRS.filter(match);
+    const idx = list.indexOf(current);
+    const p = list[(idx + dir + list.length) % list.length];
+    const t = tiles.find(t => t.pair === p);
+    opened = t;
+    faceTile(t);
+    show(p);
+    blip(dir > 0 ? 990 : 740);
+  }
+  function close() {
+    overlay.hidden = true;
+    opened = null;
+    clearInterval(typer);
+    target = null; paused = false; goalX = rotX; goalY = rotY; vx = vy = 0;
+    $("sel").textContent = "---";
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    blip(440);
+  }
+  // 3D tilt follows the pointer; FLIP turns the card over
+  const card = $("card");
+  let flipped = false;
+  function setTurn(on) {
+    flipped = on;
+    card.classList.toggle("is-flipped", on);
+    card.classList.add("turning");
+    card.style.setProperty("--turn", on ? "180deg" : "0deg");
+    $("back").setAttribute("aria-hidden", on ? "false" : "true");
+    setTimeout(() => card.classList.remove("turning"), 600);
+  }
+  overlay.addEventListener("pointermove", e => {
+    if (reduce || e.pointerType === "touch") return;
+    const r = card.getBoundingClientRect();
+    const px = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const py = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    card.style.setProperty("--ry", ((px - 0.5) * (flipped ? -26 : 26)).toFixed(2) + "deg");
+    card.style.setProperty("--rx", (-(py - 0.5) * 20).toFixed(2) + "deg");
+    card.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
+    card.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+  });
+  overlay.addEventListener("pointerleave", () => {
+    card.style.setProperty("--ry", "0deg");
+    card.style.setProperty("--rx", "0deg");
+  });
+  $("flipbtn").addEventListener("click", () => { setTurn(true); blip(1040); });
+  $("flipback").addEventListener("click", () => { setTurn(false); blip(780); });
+  $("close").addEventListener("click", close);
+  $("prev").addEventListener("click", () => step(-1));
+  $("next").addEventListener("click", () => step(1));
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  addEventListener("keydown", e => {
+    if (overlay.hidden) return;
+    if (e.key === "Escape") close();
+    if (e.key === "f" || e.key === "F") setTurn(!flipped);
+    if (e.key === "ArrowRight") step(1);
+    if (e.key === "ArrowLeft") step(-1);
+  });
+})();
+</script>
+
+</body>
+</html>
