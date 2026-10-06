@@ -602,7 +602,7 @@ body {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const N = PAIRS.length;
   const R = 10;                                   // globe radius, world units
-  const TILE = R * Math.sqrt(4 * Math.PI / N) * 0.74;
+  const TILE = R * Math.sqrt(4 * Math.PI / N) * 0.84;
   const DEPTH = TILE * 0.16;
   const LIFT = TILE * 0.5;
 
@@ -669,7 +669,7 @@ body {
 
   // board layout for UNFOLD: tiers in board order, each tier starts a new row under its label
   const TIER_ORDER = Object.keys(TIERS);
-  const COLS = 30, SP = TILE * 1.22, STAG = 0.4;
+  const COLS = 30, SP = TILE * 1.08, STAG = 0.4;
   const flatLabels = [];
   let FLAT_W = COLS * SP, FLAT_H = 0;
   {
