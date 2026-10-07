@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Air Jordan 1 pixel collection by MAUS MAUS: 250 8-bit colorways on a 3D globe.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ultra0034.github.io/jordan/">
+<meta property="og:title" content="Air Jordan 1 Pixel Collection">
+<meta property="og:description" content="250 Air Jordan 1 colorways in 8-bit pixel art by MAUS MAUS. Spin the globe, unfold the board, open any pair.">
+<meta property="og:image" content="https://ultra0034.github.io/jordan/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A globe of pixel-art Air Jordan 1 tiles">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Air Jordan 1 Pixel Collection">
+<meta name="twitter:description" content="250 Air Jordan 1 colorways in 8-bit pixel art by MAUS MAUS.">
+<meta name="twitter:image" content="https://ultra0034.github.io/jordan/og.png">
 <title>Pixel Jordan Globe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -301,13 +313,11 @@ body {
         <p class="nick" id="c-nick"></p>
         <p class="desc" id="c-desc" aria-live="polite"></p>
         <dl class="stats" id="c-stats"></dl>
-        <div class="swatches" id="c-sw"></div>
         <div class="nav">
           <button class="pixbtn" id="prev">◀ PREV</button>
           <button class="pixbtn" id="next">NEXT ▶</button>
           <button class="pixbtn" id="flipbtn">FLIP ⟲</button>
         </div>
-        <p class="note" id="c-note">Specs from the NFT-0034 Figma board.</p>
       </div>
       <div class="back" id="back" aria-hidden="true">
         <span class="label">AIR JORDAN 1 · PIXEL COLLECTION</span>
@@ -1012,7 +1022,6 @@ body {
     const esc = v => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;");
     $("c-stats").innerHTML = [["STYLE", p.code], ["RELEASE", p.year], ["RETAIL", p.retail], ["TIER", TIERS[p.tier].label]]
       .map(([k, v]) => `<div class="stat"><dt>${k}</dt><dd class="txt">${esc(v)}</dd></div>`).join("");
-    $("c-sw").innerHTML = `<small>FIGMA NODE ${esc(p.node)}</small>`;
     clearInterval(typer);
     const el = $("c-desc");
     if (reduce) { el.textContent = p.desc; return; }
