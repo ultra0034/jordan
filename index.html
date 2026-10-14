@@ -642,9 +642,10 @@ body {
 
   // thumbnails come from two texture sheets; each face gets a clone pointing at its cell
   const loader = new THREE.TextureLoader();
+  let sheetsLoaded = 0;
   const faceClones = SHEETS.map(() => []);
   const sheets = SHEETS.map((url, i) => {
-    const tex = loader.load(url, () => faceClones[i].forEach(c => { c.needsUpdate = true; }));
+    const tex = loader.load(url, () => { faceClones[i].forEach(c => { c.needsUpdate = true; }); if (++sheetsLoaded === SHEETS.length) startIntro(); });
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.magFilter = THREE.NearestFilter;      // keep the pixel art hard-edged up close
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -709,7 +710,7 @@ body {
   });
   const qFlat = new THREE.Quaternion(), zAx = new THREE.Vector3(), sp = new THREE.Vector3();
   const easeIO = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-  let morph = 0, flat = false;                     // morph: 0 globe … 1 board
+  let morph = 1, flat = true;                      // morph: 0 globe … 1 board; the page opens on the board
   const tileMix = t => easeIO(Math.min(1, Math.max(0, (morph - t.delay) / (1 - STAG))));
   function place(t) {
     const e = tileMix(t);
@@ -746,7 +747,7 @@ body {
   resize();
   addEventListener("resize", resize);
 
-  let rotX = 0.2, rotY = 0, vx = 0, vy = 0, goalX = 0.2, goalY = 0, spin = 0;
+  let rotX = 0, rotY = 0, vx = 0, vy = 0, goalX = 0, goalY = 0, spin = 0;
   let target = null;           // {x, y} rotation the globe eases toward
   let paused = false;
   let zoom = 1, zoomTarget = 1;
@@ -915,7 +916,7 @@ body {
 
   // UNFOLD: globe ⇄ board
   const unfoldBtn = $z("unfold");
-  function setFlat(on) {
+  function setFlat(on, quiet) {
     flat = on;
     hover = null; stage.style.cursor = "";
     unfoldBtn.setAttribute("aria-pressed", on ? "true" : "false");
@@ -930,9 +931,18 @@ body {
       target = null; goalX = rotX; goalY = rotY;
     }
     setZoom(1);
-    blip(on ? 520 : 880); setTimeout(() => blip(on ? 880 : 520), 90);
+    if (!quiet) { blip(on ? 520 : 880); setTimeout(() => blip(on ? 880 : 520), 90); }
   }
   unfoldBtn.addEventListener("click", () => setFlat(!flat));
+
+  // intro: open on the unfolded board, then gather it into the globe once the thumbnails are in
+  setFlat(true, true);
+  let introDone = false;
+  function startIntro() {
+    if (introDone) return;
+    introDone = true;
+    setTimeout(() => { if (flat && !opened) setFlat(false); }, reduce ? 0 : 1200);
+  }
 
   function faceTile(t) {
     if (flat) { panGoal.set(t.fp.x, t.fp.y); clampPan(); return; }
