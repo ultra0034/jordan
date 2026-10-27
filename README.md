@@ -5,6 +5,7 @@
 - Drag to spin, scroll or pinch to zoom, click a tile to open its card
 - **UNFOLD** (or `U`) lays the globe out as the tier board: Ultimate, Legend, Epic, Collaboration, Rare, Special, Common
 - Filter by tier from the bottom bar
+- **VENDING** (or `V`) opens the Pixel Drop machine: MINT NOW pulls a random pair, weighted by tier (Common 55% · Special 20% · Rare 12% · Collab 7% · Epic 4% · Legend 1.7% · Ultimate 0.3%). Pulls are kept in your browser; the **MINE** filter shows the pairs you've got
 
 Built with [three.js](https://threejs.org). Thumbnails and specs come from the NFT-0034 Figma board.
 
